@@ -22,10 +22,10 @@ export AWS_REGION=$REGION
 echo "Creating VPC..."
 
 VPC_ID=$(aws ec2 create-vpc \
---cidr-block $VPC_CIDR \
---tag-specifications 'ResourceType=vpc,Tags=[{Key=Name,Value=notesapp-vpc}]' \
---query 'Vpc.VpcId' \
---output text)
+  --cidr-block $VPC_CIDR \
+  --tag-specifications 'ResourceType=vpc,Tags=[{Key=Name,Value=notesapp-vpc}]' \
+  --query 'Vpc.VpcId' \
+  --output text)
 
 echo "VPC: $VPC_ID"
 
@@ -39,17 +39,17 @@ aws ec2 modify-vpc-attribute --vpc-id $VPC_ID --enable-dns-hostnames
 echo "Creating subnet..."
 
 SUBNET_ID=$(aws ec2 create-subnet \
---vpc-id $VPC_ID \
---cidr-block $SUBNET_CIDR \
---tag-specifications 'ResourceType=subnet,Tags=[{Key=Name,Value=notesapp-subnet}]' \
---query 'Subnet.SubnetId' \
---output text)
+  --vpc-id $VPC_ID \
+  --cidr-block $SUBNET_CIDR \
+  --tag-specifications 'ResourceType=subnet,Tags=[{Key=Name,Value=notesapp-subnet}]' \
+  --query 'Subnet.SubnetId' \
+  --output text)
 
 echo "Subnet: $SUBNET_ID"
 
 aws ec2 modify-subnet-attribute \
---subnet-id $SUBNET_ID \
---map-public-ip-on-launch
+  --subnet-id $SUBNET_ID \
+  --map-public-ip-on-launch
 
 # -------------------------
 # INTERNET GATEWAY
@@ -58,15 +58,15 @@ aws ec2 modify-subnet-attribute \
 echo "Creating internet gateway..."
 
 IGW_ID=$(aws ec2 create-internet-gateway \
---tag-specifications 'ResourceType=internet-gateway,Tags=[{Key=Name,Value=notesapp-igw}]' \
---query 'InternetGateway.InternetGatewayId' \
---output text)
+  --tag-specifications 'ResourceType=internet-gateway,Tags=[{Key=Name,Value=notesapp-igw}]' \
+  --query 'InternetGateway.InternetGatewayId' \
+  --output text)
 
 echo "IGW: $IGW_ID"
 
 aws ec2 attach-internet-gateway \
---internet-gateway-id $IGW_ID \
---vpc-id $VPC_ID
+  --internet-gateway-id $IGW_ID \
+  --vpc-id $VPC_ID
 
 # -------------------------
 # ROUTE TABLE
@@ -75,21 +75,21 @@ aws ec2 attach-internet-gateway \
 echo "Creating route table..."
 
 RT_ID=$(aws ec2 create-route-table \
---vpc-id $VPC_ID \
---tag-specifications 'ResourceType=route-table,Tags=[{Key=Name,Value=notesapp-rt}]' \
---query 'RouteTable.RouteTableId' \
---output text)
+  --vpc-id $VPC_ID \
+  --tag-specifications 'ResourceType=route-table,Tags=[{Key=Name,Value=notesapp-rt}]' \
+  --query 'RouteTable.RouteTableId' \
+  --output text)
 
 echo "Route Table: $RT_ID"
 
 aws ec2 create-route \
---route-table-id $RT_ID \
---destination-cidr-block 0.0.0.0/0 \
---gateway-id $IGW_ID
+  --route-table-id $RT_ID \
+  --destination-cidr-block 0.0.0.0/0 \
+  --gateway-id $IGW_ID
 
 aws ec2 associate-route-table \
---subnet-id $SUBNET_ID \
---route-table-id $RT_ID
+  --subnet-id $SUBNET_ID \
+  --route-table-id $RT_ID
 
 # -------------------------
 # KEY PAIR
@@ -98,9 +98,9 @@ aws ec2 associate-route-table \
 echo "Creating key pair..."
 
 aws ec2 create-key-pair \
---key-name $KEY_NAME \
---query 'KeyMaterial' \
---output text > $KEY_NAME.pem
+  --key-name $KEY_NAME \
+  --query 'KeyMaterial' \
+  --output text > $KEY_NAME.pem
 
 chmod 400 $KEY_NAME.pem
 
@@ -111,34 +111,34 @@ chmod 400 $KEY_NAME.pem
 echo "Creating security group..."
 
 SG_ID=$(aws ec2 create-security-group \
---group-name notesapp-sg \
---description "NotesApp security group" \
---vpc-id $VPC_ID \
---query 'GroupId' \
---output text)
+  --group-name notesapp-sg \
+  --description "NotesApp security group" \
+  --vpc-id $VPC_ID \
+  --query 'GroupId' \
+  --output text)
 
 echo "Security Group: $SG_ID"
 
 # SSH
 aws ec2 authorize-security-group-ingress \
---group-id $SG_ID \
---protocol tcp \
---port 22 \
---cidr 0.0.0.0/0
+  --group-id $SG_ID \
+  --protocol tcp \
+  --port 22 \
+  --cidr 0.0.0.0/0
 
 # HTTP
 aws ec2 authorize-security-group-ingress \
---group-id $SG_ID \
---protocol tcp \
---port 80 \
---cidr 0.0.0.0/0
+  --group-id $SG_ID \
+  --protocol tcp \
+  --port 80 \
+  --cidr 0.0.0.0/0
 
 # NotesApp
 aws ec2 authorize-security-group-ingress \
---group-id $SG_ID \
---protocol tcp \
---port 3000 \
---cidr 0.0.0.0/0
+  --group-id $SG_ID \
+  --protocol tcp \
+  --port 3000 \
+  --cidr 0.0.0.0/0
 
 # -------------------------
 # GET AMI
@@ -147,12 +147,41 @@ aws ec2 authorize-security-group-ingress \
 echo "Fetching latest Amazon Linux AMI..."
 
 AMI_ID=$(aws ec2 describe-images \
---owners amazon \
---filters "Name=name,Values=amzn2-ami-hvm-*-x86_64-gp2" \
---query 'Images | sort_by(@,&CreationDate)[-1].ImageId' \
---output text)
+  --owners amazon \
+  --filters "Name=name,Values=amzn2-ami-hvm-*-x86_64-gp2" \
+  --query 'Images | sort_by(@,&CreationDate)[-1].ImageId' \
+  --output text)
 
 echo "AMI: $AMI_ID"
+
+# -------------------------
+# USER DATA (runs on first boot)
+# -------------------------
+
+USER_DATA=$(cat <<'EOF'
+#!/bin/bash
+set -e
+
+echo "Updating system packages..."
+yum update -y
+
+echo "Installing required packages..."
+yum install -y git nodejs
+
+echo "Creating service user..."
+useradd --system --create-home --shell /sbin/nologin notesapp || true
+
+echo "Creating application directory..."
+mkdir -p /opt/notesapp
+chown notesapp:notesapp /opt/notesapp
+
+echo "Cloning application repository..."
+git clone https://github.com/mosesekerin/systems-evolution-lab.git /opt/notesapp
+chown -R notesapp:notesapp /opt/notesapp
+
+echo "Boot setup complete."
+EOF
+)
 
 # -------------------------
 # LAUNCH INSTANCE
@@ -161,15 +190,16 @@ echo "AMI: $AMI_ID"
 echo "Launching EC2 instance..."
 
 INSTANCE_ID=$(aws ec2 run-instances \
---image-id $AMI_ID \
---instance-type t2.micro \
---key-name $KEY_NAME \
---subnet-id $SUBNET_ID \
---security-group-ids $SG_ID \
---associate-public-ip-address \
---tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=notesapp-server}]' \
---query 'Instances[0].InstanceId' \
---output text)
+  --image-id $AMI_ID \
+  --instance-type t2.micro \
+  --key-name $KEY_NAME \
+  --subnet-id $SUBNET_ID \
+  --security-group-ids $SG_ID \
+  --associate-public-ip-address \
+  --user-data "$USER_DATA" \
+  --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=notesapp-server}]' \
+  --query 'Instances[0].InstanceId' \
+  --output text)
 
 echo "Instance: $INSTANCE_ID"
 
@@ -180,16 +210,16 @@ echo "Instance: $INSTANCE_ID"
 echo "Waiting for instance to start..."
 
 aws ec2 wait instance-running \
---instance-ids $INSTANCE_ID
+  --instance-ids $INSTANCE_ID
 
 # -------------------------
 # GET PUBLIC IP
 # -------------------------
 
 PUBLIC_IP=$(aws ec2 describe-instances \
---instance-ids $INSTANCE_ID \
---query 'Reservations[0].Instances[0].PublicIpAddress' \
---output text)
+  --instance-ids $INSTANCE_ID \
+  --query 'Reservations[0].Instances[0].PublicIpAddress' \
+  --output text)
 
 echo "Instance Public IP: $PUBLIC_IP"
 
@@ -201,7 +231,10 @@ echo ""
 echo "Infrastructure ready."
 echo ""
 echo "SSH Access:"
-echo "ssh -i $KEY_NAME.pem ec2-user@$PUBLIC_IP"
+echo "  ssh -i $KEY_NAME.pem ec2-user@$PUBLIC_IP"
 echo ""
 echo "NotesApp endpoint:"
-echo "http://$PUBLIC_IP:3000"
+echo "  http://$PUBLIC_IP:3000"
+echo ""
+echo "Note: The app setup is still running in the background on the instance."
+echo "      Give it a minute or two before hitting the endpoint."
