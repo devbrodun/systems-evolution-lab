@@ -174,7 +174,7 @@ locals {
     set -e
 
     echo "Downloading server configuration script..."
-    curl -fsSL https://raw.githubusercontent.com/mosesekerin/systems-evolution-lab/main/configure-server.sh \
+    curl -fsSL https://raw.githubusercontent.com/mosesekerin/systems-evolution-lab/main/scripts/configure-server.sh \
       -o /tmp/configure-server.sh
 
     chmod +x /tmp/configure-server.sh
