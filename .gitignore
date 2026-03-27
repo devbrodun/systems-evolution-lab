@@ -25,6 +25,7 @@ terraform.rc
 # AWS CLI credentials
 *.aws/credentials
 *.aws/config
+*.pem
 # Ignore temp zip archives or downloaded files
 *.zip
 *.tar.gz
