@@ -179,7 +179,7 @@ locals {
 
     chmod +x /tmp/configure-server.sh
 
-    echo "Running server configuration..."
+    echo "Running server configration..."
     bash /tmp/configure-server.sh
 
     echo "Boot setup complete."
